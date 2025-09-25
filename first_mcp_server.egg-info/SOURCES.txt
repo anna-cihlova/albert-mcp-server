@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-server.py
-first_mcp_server.egg-info/PKG-INFO
-first_mcp_server.egg-info/SOURCES.txt
-first_mcp_server.egg-info/dependency_links.txt
-first_mcp_server.egg-info/entry_points.txt
-first_mcp_server.egg-info/requires.txt
-first_mcp_server.egg-info/top_level.txt
