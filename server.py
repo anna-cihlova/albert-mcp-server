@@ -1,126 +1,162 @@
 from mcp.server.fastmcp import FastMCP
-import feedparser, random, requests
-from typing import Optional
+import feedparser
+import requests
 from datetime import datetime
+from typing import Optional
 
-# MCP server name
-mcp = FastMCP("Morning Albert")
-
-# RSS feeds for AI news
-AI_FEEDS = {
-    "huggingface": "https://huggingface.co/blog/feed.xml",
-    "openai": "https://openai.com/blog/rss/",
+# Feed Config
+NEWS_FEEDS = {
+    "huggingface": "https://huggingface.co/blog/feed",
+    "kdnuggets": "https://www.kdnuggets.com/feed",
+    "openai": "https://openai.com/blog/rss",
     "towardsai": "https://towardsai.net/feed",
-    "wiz": "https://www.wiz.io/blog/rss.xml",
-    "arxiv": "https://export.arxiv.org/rss/cs.AI"
+    "googleai": "blog.google/technology/ai/rss/"
 }
 
-# Get AI News
+PODCAST_FEEDS = {
+    "everydayai": "https://rss.buzzsprout.com/2175779.rss",
+}
+
+PUBLICATION_FEEDS = {
+    "arxiv": "https://export.arxiv.org/rss/cs.AI",
+}
+
+# MCP Server
+mcp = FastMCP("Morning Albert")
+
+# Tools
 @mcp.tool()
-def get_ai_news(source: str = "huggingface", max_items: int = 5, today_only: bool = True) -> list[str]:
-    """Fetch the latest AI news with author and date."""
+def get_ai_podcasts(max_items: int = 5) -> list[str]:
+    """Fetch latest AI podcast episodes with transcripts if available, otherwise summaries."""
 
-    if source not in AI_FEEDS:
-        return [f"Unknown source {source}. Options: {list(AI_FEEDS.keys())}"]
+    episodes = []
 
-    feed = feedparser.parse(AI_FEEDS[source])
-    today = datetime.utcnow().date()
-    items = []
+    for feed_url in PODCAST_FEEDS.values():
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:max_items]:
+            pub_date = (
+                datetime(*entry.published_parsed[:6]).strftime("%Y-%m-%d")
+                if hasattr(entry, "published_parsed")
+                else "Unknown date"
+            )
+            title = getattr(entry, "title", "No title")
 
-    for entry in feed.entries:
-        # Date
-        pub_date_str = "Unknown date"
-        pub_date = None
-        if hasattr(entry, "published_parsed") and entry.published_parsed:
-            pub_date = datetime(*entry.published_parsed[:6])
-            pub_date_str = pub_date.strftime("%Y-%m-%d %H:%M")
+            # Try to find transcript field
+            transcript = None
+            if hasattr(entry, "transcript"):
+                transcript = entry.transcript
+            elif hasattr(entry, "links"):
+                # Some feeds provide transcript as a link
+                for link in entry.links:
+                    if link.get("rel") == "transcript" or "transcript" in link.get("type", ""):
+                        transcript = f"Transcript available here: {link.get('href')}"
+                        break
 
-        # Author
-        author = getattr(entry, "author", "Unknown author")
+            # Fallback to summary
+            summary = getattr(entry, "summary", "").strip()
+            text = transcript if transcript else (summary if summary else "No summary available")
 
-        # Filter by today if needed
-        if not today_only or (pub_date and pub_date.date() == today):
-            items.append(f"- {entry.title} by {author} ({pub_date_str}) → {entry.link}")
+            # Safe link handling
+            link = getattr(entry, "link", None)
+            if not link:
+                if hasattr(entry, "enclosures") and entry.enclosures:
+                    # Only try if enclosures is non-empty
+                    link = entry.enclosures[0].get("url", "No link available")
+                else:
+                    link = "No link available"
 
-        if len(items) >= max_items:
-            break
+            formatted = f"- **{title}** ({pub_date}) → {link}\n  🎧 {text[:640]}..."
+            episodes.append(formatted)
 
-    return items if items else ["No new AI news today."]
+    return episodes if episodes else ["No new podcast episodes found."]
 
 
-# Check new AI publications
+
 @mcp.tool()
-def check_new_ai_pubs(today_only: bool = True) -> list[str]:
-    """Check ArXiv AI papers published today, with author(s) and date."""
+def get_ai_news(today_only: bool = True, max_items: int = 20) -> list[str]:
+    """Fetch AI-related news (default: all published today). Includes summaries if available."""
 
-    feed = feedparser.parse(AI_FEEDS["arxiv"])
-    today = datetime.utcnow().date()
+    news_items = []
+
+    for feed_url in NEWS_FEEDS.values():
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries:
+            # Parse publication date
+            if hasattr(entry, "published_parsed"):
+                pub_date = datetime(*entry.published_parsed[:6]).date()
+                pub_date_str = datetime(*entry.published_parsed[:6]).strftime("%Y-%m-%d %H:%M")
+            else:
+                pub_date = None
+                pub_date_str = "Unknown date"
+
+            author = getattr(entry, "author", "Unknown author")
+            summary = getattr(entry, "summary", "").strip()
+
+            if not today_only or (pub_date and pub_date == datetime.utcnow().date()):
+                formatted = f"- **{entry.title}** by {author} ({pub_date_str}) → {entry.link}"
+                if summary:
+                    formatted += f"\n  📝 {summary[:220]}..."  # keep it short
+                news_items.append(formatted)
+
+    return news_items[:max_items] if news_items else ["No AI news found today."]
+
+
+@mcp.tool()
+def check_new_ai_pubs(today_only: bool = True, max_items: int = 8) -> list[str]:
+    """Check AI research publications (default: today only)."""
+
     papers = []
+    today = datetime.utcnow().date()
 
-    for entry in feed.entries:
-        pub_date = datetime(*entry.published_parsed[:6]).date()
-        pub_date_str = datetime(*entry.published_parsed[:6]).strftime("%Y-%m-%d %H:%M")
+    for feed_url in PUBLICATION_FEEDS.values():
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries:
+            pub_date = datetime(*entry.published_parsed[:6]).date() if hasattr(entry, "published_parsed") else None
+            pub_date_str = pub_date.strftime("%Y-%m-%d") if pub_date else "Unknown date"
 
-        authors = ", ".join([a.name for a in getattr(entry, "authors", [])]) if hasattr(entry, "authors") else "Unknown authors"
+            authors = ", ".join([a.name for a in getattr(entry, "authors", [])]) if hasattr(entry, "authors") else "Unknown authors"
 
-        if not today_only or pub_date == today:
-            papers.append(f"- {entry.title} by {authors} ({pub_date_str}) → {entry.link}")
+            if not today_only or (pub_date and pub_date == today):
+                papers.append(f"- {entry.title} by {authors} ({pub_date_str}) → {entry.link}")
 
     return papers if papers else ["No new AI publications today."]
 
 
-# Suggest projects from news
 @mcp.tool()
-def suggest_projects_from_news(max_projects: int = 3) -> list[str]:
-    """Suggest project ideas based on latest AI news/papers, with GitHub repos."""
+def suggest_case_studies(max_items: int = 8) -> list[str]:
+    """Suggest case studies to explore (from Hugging Face + KDNuggets)."""
 
-    # Grab headlines from Hugging Face + ArXiv
-    hf = feedparser.parse(AI_FEEDS["huggingface"]).entries[:5]
-    ax = feedparser.parse(AI_FEEDS["arxiv"]).entries[:5]
-    headlines = [e.title for e in hf + ax]
+    case_studies = []
 
-    if not headlines:
-        return ["No news available."]
+    # Hugging Face case studies (static link list for now)
+    case_studies.append("https://huggingface.co/blog?tag=case-studies")
 
-    random.shuffle(headlines)
-    projects = []
+    # KDNuggets articles
+    case_studies.append("https://www.kdnuggets.com/")
 
-    for h in headlines[:max_projects]:
-        # Query GitHub API for related repos
-        query = h.split()[0]  # crude: first word of headline
-        github_url = f"https://api.github.com/search/repositories?q={query}+AI&sort=stars&order=desc"
-
-        try:
-            resp = requests.get(github_url, timeout=5).json()
-            repo = resp["items"][0]["html_url"] if "items" in resp and resp["items"] else "No repo found"
-        except:
-            repo = "No repo found"
-
-        projects.append(f"- Build a project inspired by: {h}\n  Resource: {repo}")
-
-    return projects
+    return case_studies[:max_items]
 
 
-# Daily Digest
 @mcp.tool()
 def daily_digest(name: Optional[str] = None) -> str:
-    """Morning Albert: Full daily update with greeting, AI news, pubs, and projects."""
-    if name:
-        greeting = f"👋 Good morning, {name}!\n"
-    else:
-        greeting = "👋 Good morning!\n"
+    """Full daily update: greeting, AI news, publications, and case studies."""
 
-    news = get_ai_news(max_items=3, today_only=True)
+    greeting = f"👋 Good morning, {name}!\n" if name else "👋 Good morning!\n"
+
+    episodes = get_ai_podcasts(today_only=True)
+    news = get_ai_news(today_only=True)
     pubs = check_new_ai_pubs(today_only=True)
-    projects = suggest_projects_from_news(max_projects=3)
+    case_studies = suggest_case_studies(max_items=8)
 
     formatted = greeting
-    formatted += "\n📰 AI News:\n" + "\n".join(news) + "\n"
-    formatted += "\n📚 New Publications:\n" + "\n".join(pubs) + "\n"
-    formatted += "\n💡 Project Ideas:\n" + "\n".join(projects) + "\n"
+    formatted += "\n📰 AI Podcasts' Summary (Today):\n" + "\n".join(episodes) + "\n"
+    formatted += "\n📰 AI News (Today):\n" + "\n".join(news) + "\n"
+    formatted += "\n📚 Publications (Today):\n" + "\n".join(pubs) + "\n"
+    formatted += "\n💡 Case Studies:\n" + "\n".join(case_studies) + "\n"
 
     return formatted
 
+# Main
 def main():
     mcp.run()
 
