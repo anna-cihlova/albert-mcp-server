@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: albert-mcp-server
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: feedparser>=6.0.12
+Requires-Dist: mcp[cli]>=1.14.1
+Requires-Dist: requests>=2.32.5

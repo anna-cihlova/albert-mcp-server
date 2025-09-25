@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+server.py
+albert_mcp_server.egg-info/PKG-INFO
+albert_mcp_server.egg-info/SOURCES.txt
+albert_mcp_server.egg-info/dependency_links.txt
+albert_mcp_server.egg-info/entry_points.txt
+albert_mcp_server.egg-info/requires.txt
+albert_mcp_server.egg-info/top_level.txt
