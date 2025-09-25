@@ -1,2 +1,2 @@
 [console_scripts]
-first-mcp-server = server:main
+albert-mcp-server = server:main

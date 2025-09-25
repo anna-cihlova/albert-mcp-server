@@ -3,6 +3,23 @@ revision = 3
 requires-python = ">=3.10"
 
 [[package]]
+name = "albert-mcp-server"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "feedparser" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "feedparser", specifier = ">=6.0.12" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.14.1" },
+    { name = "requests", specifier = ">=2.32.5" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -151,23 +168,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dc/79/db7edb5e77d6dfbc54d7d9df72828be4318275b2e580549ff45a962f6461/feedparser-6.0.12.tar.gz", hash = "sha256:64f76ce90ae3e8ef5d1ede0f8d3b50ce26bcce71dd8ae5e82b1cd2d4a5f94228", size = 286579, upload-time = "2025-09-10T13:33:59.486Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/eb/c96d64137e29ae17d83ad2552470bafe3a7a915e85434d9942077d7fd011/feedparser-6.0.12-py3-none-any.whl", hash = "sha256:6bbff10f5a52662c00a2e3f86a38928c37c48f77b3c511aedcd51de933549324", size = 81480, upload-time = "2025-09-10T13:33:58.022Z" },
-]
-
-[[package]]
-name = "first-mcp-server"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "feedparser" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "requests" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "feedparser", specifier = ">=6.0.12" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.14.1" },
-    { name = "requests", specifier = ">=2.32.5" },
 ]
 
 [[package]]

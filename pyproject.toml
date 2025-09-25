@@ -11,4 +11,4 @@ dependencies = [
 ]
 
 [project.scripts]
-first-mcp-server = "server:main"
+albert-mcp-server = "server:main"
